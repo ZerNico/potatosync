@@ -83,18 +83,42 @@ export default class UserController {
     } else {
       // create jwt and refresh token
       const token = jwt.sign(
-        { sub: user.id, role: user.role },
+        { sub: user.id, role: user.role, type: 'jwt' },
         config.jwtSecret,
         { expiresIn: '20m' }
       );
       const refresh_token = jwt.sign(
-        { sub: user.id, pwId: user.password_identifier },
+        { sub: user.id, pwId: user.password_identifier, type: 'refresh' },
         config.jwtSecret,
         { expiresIn: '1y' }
       );
       // return OK status code and tokens
       ctx.status = 200;
       ctx.body = { token: token, refresh_token: refresh_token };
+    }
+  }
+
+  @request('get', '/user/me')
+  @summary(`Register a user`)
+  public static async getMe(ctx: BaseContext) {
+
+    // get a user repository to perform operations with user
+    const userRepository: Repository<User> = getManager().getRepository(User);
+
+    // try to find user
+    const user: User = await userRepository.findOne({ id: ctx.state.user.sub });
+
+    if (!user) {
+      // return BAD REQUEST status code and user does not exist error
+      ctx.status = 400;
+      ctx.body = 'The specified user was not found';
+    } else {
+      // dont return password
+      delete user.password;
+      delete user.password_identifier;
+      // return OK status code and user object
+      ctx.status = 200;
+      ctx.body = user;
     }
   }
 }

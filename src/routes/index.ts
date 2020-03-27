@@ -1,14 +1,14 @@
 import { SwaggerRouter } from 'koa-swagger-decorator';
 import path from 'path';
-
 import { user } from './user';
 import { general } from './general';
 
 const router = new SwaggerRouter();
 
 // include all routes
+router.use('/', general.routes()).use(general.allowedMethods());
 router.use('/user', user.routes()).use(user.allowedMethods());
-router.use('/user', general.routes()).use(general.allowedMethods());
+
 
 // Swagger endpoint
 router.swagger({

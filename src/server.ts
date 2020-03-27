@@ -1,5 +1,4 @@
 import Koa from 'koa';
-import jwt from 'koa-jwt';
 import bodyParser from 'koa-bodyparser';
 import helmet from 'koa-helmet';
 import cors from '@koa/cors';
