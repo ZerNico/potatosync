@@ -121,4 +121,35 @@ export default class UserController {
       ctx.body = user;
     }
   }
+
+  @request('get', '/user/refresh')
+  @summary(`Get a new jwt token`)
+  public static async refresh(ctx: BaseContext) {
+
+    // get a user repository to perform operations with user
+    const userRepository: Repository<User> = getManager().getRepository(User);
+
+    // try to find user
+    const user: User = await userRepository.findOne({ id: ctx.state.user.sub });
+
+    if (!user) {
+      // return BAD REQUEST status code and user does not exist error
+      ctx.status = 400;
+      ctx.body = 'The specified user was not found';
+    } else if (ctx.state.user.pwId != user.password_identifier) {
+      // return UNAUTHORIZED status code and invalid token error
+      ctx.status = 401;
+      ctx.body = 'Invalid token';
+    } else {
+      // create jwt
+      const token = jwt.sign(
+        { sub: user.id, role: user.role, type: 'jwt' },
+        config.jwtSecret,
+        { expiresIn: '20m' }
+      );
+      // return OK status code and jwt token
+      ctx.status = 200;
+      ctx.body = { token: token };
+    }
+  }
 }
