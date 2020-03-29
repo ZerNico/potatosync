@@ -98,9 +98,9 @@ export default class UserController {
     }
   }
 
-  @request('get', '/user/me')
-  @summary(`Register a user`)
-  public static async getMe(ctx: BaseContext) {
+  @request('get', '/user/profile')
+  @summary(`Get a user profile`)
+  public static async getProfile(ctx: BaseContext) {
 
     // get a user repository to perform operations with user
     const userRepository: Repository<User> = getManager().getRepository(User);
