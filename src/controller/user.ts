@@ -29,7 +29,9 @@ export default class UserController {
     userToBeSaved.password_identifier = crypto.randomBytes(5).toString('hex');
 
     // validate user entity
-    const errors: ValidationError[] = await validate(userToBeSaved, { validationError: { target: false } }); // errors is an array of validation errors
+    const errors: ValidationError[] = await validate(userToBeSaved, {
+      groups: ['register'], validationError: { target: false }
+    }); // errors is an array of validation errors
 
     if (errors.length > 0) {
       // return BAD REQUEST status code and errors array
@@ -60,22 +62,31 @@ export default class UserController {
     // build up user entity
     const userToBeLoggedIn: User = new User();
     userToBeLoggedIn.email = ctx.request.body.email;
+    userToBeLoggedIn.username = ctx.request.body.username;
     userToBeLoggedIn.password = ctx.request.body.password;
 
+
     // validate user entity
-    const errors: ValidationError[] = await validate(userToBeLoggedIn, { groups: ['login'], validationError: { target: false } }); // errors is an array of validation errors
+    const errors: ValidationError[] = await validate(userToBeLoggedIn, {
+      groups: ['login'], validationError: { target: false }
+    }); // errors is an array of validation errors
 
     // try to find user
-    const user: User = await userRepository.findOne({ email: userToBeLoggedIn.email });
+    const user: User = await userRepository.findOne({
+      where: [
+        { email: userToBeLoggedIn.email },
+        { username: userToBeLoggedIn.username }
+      ]
+    });
 
     if (errors.length > 0) {
       // return BAD REQUEST status code and errors array
       ctx.status = 400;
       ctx.body = errors;
     } else if (!user) {
-      // return BAD REQUEST status code and email does not exist error
+      // return BAD REQUEST status code and email/password does not exist error
       ctx.status = 400;
-      ctx.body = 'The specified email is invalid';
+      ctx.body = 'The specified email/password is invalid';
     } else if (!await user.compareHash(userToBeLoggedIn.password)) {
       // return BAD REQUEST status code and password is wrong error
       ctx.status = 400;

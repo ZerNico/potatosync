@@ -1,5 +1,5 @@
 import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
-import { Length, IsEmail, IsOptional } from 'class-validator';
+import { Length, IsEmail, IsOptional, ValidateIf } from 'class-validator';
 import { hash, compare } from 'bcrypt';
 import { IsUniq } from '@join-com/typeorm-class-validator-is-uniq';
 
@@ -8,52 +8,32 @@ export class User {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @Column({
-        length: 80,
-        unique: true
-    })
-    @Length(4, 80)
-    @IsUniq()
+    @Column({ length: 80, unique: true })
+    @Length(3, 80, { groups: ['register', 'login'] })
+    @IsUniq({ groups: ['register'] })
+    @ValidateIf(o => o.email == undefined, { groups: ['login'] })
     username: string;
 
-    @Column({
-        length: 100
-    })
-    @Length(5, 100, {
-        groups: ['login']
-    })
+    @Column({ length: 100 })
+    @Length(5, 100, { groups: ['register', 'login'] })
     password: string;
 
-    @Column({
-        length: 100
-    })
+    @Column({ length: 100 })
     password_identifier: string;
 
-    @Column({
-        length: 100,
-        unique: true
-    })
-    @Length(10, 100, {
-        groups: ['login']
-    })
-    @IsEmail(undefined, {
-        groups: ['login']
-    })
-    @IsUniq()
+    @Column({ length: 100, unique: true })
+    @Length(10, 100, { groups: ['register', 'login'] })
+    @IsEmail(undefined, { groups: ['register', 'login'] })
+    @IsUniq({ groups: ['register'] })
+    @IsOptional({ groups: ['login'] })
     email: string;
 
-    @Column({
-        length: 100,
-        nullable: true
-    })
+    @Column({ length: 100, nullable: true })
     @Length(5, 100)
     @IsOptional()
     image_url: string;
 
-    @Column({
-        length: 20,
-        default: 'user'
-    })
+    @Column({ length: 20, default: 'user' })
     @Length(2, 20)
     @IsOptional()
     role: string;
