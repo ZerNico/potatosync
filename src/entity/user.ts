@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, OneToOne } from 'typeorm';
 import { Length, IsEmail, IsOptional, ValidateIf } from 'class-validator';
 import { hash, compare } from 'bcrypt';
 import { IsUniq } from '@join-com/typeorm-class-validator-is-uniq';
@@ -32,6 +32,10 @@ export class User {
     @Length(5, 100)
     @IsOptional()
     image_url: string;
+
+    @Column({ default: false })
+    @IsOptional()
+    verified: boolean;
 
     @Column({ length: 20, default: 'user' })
     @Length(2, 20)

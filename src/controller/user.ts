@@ -6,7 +6,10 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 
 import { User, userSchema, loginSchema } from '../entity/user';
+import { Token } from '../entity/token';
 import { config } from '../config';
+import { email } from '../email';
+
 
 @tagsAll(['User'])
 @responsesAll({ 200: { description: 'success'}, 400: { description: 'bad request'}})
@@ -18,6 +21,7 @@ export default class UserController {
 
     // get a user repository to perform operations with user
     const userRepository: Repository<User> = getManager().getRepository(User);
+    const tokenRepository: Repository<Token> = getManager().getRepository(Token);
 
     // build up user entity to be saved
     const userToBeSaved: User = new User();
@@ -40,8 +44,29 @@ export default class UserController {
     } else {
       // hash password
       await userToBeSaved.hashPassword();
-      // save the user contained in the POST body
+      // generate verification token
+      const tokenToBeSaved: Token = new Token();
+      tokenToBeSaved.token = crypto.randomBytes(3).toString('hex');
+      // send verification mail
+      try {
+        await email.send({
+          template: 'register',
+          message: {
+            to: userToBeSaved.email
+          },
+          locals: {
+            uname: userToBeSaved.username,
+            token: tokenToBeSaved.token,
+            burl: config.baseUrl
+          }
+        });
+      } catch (err) {
+        ctx.throw(500, 'Could not send E-Mail');
+      }
+      // save user and token
       const user = await userRepository.save(userToBeSaved);
+      tokenToBeSaved.user = user;
+      await tokenRepository.save(tokenToBeSaved);
       // dont return password
       delete user.password;
       delete user.password_identifier;
@@ -55,7 +80,6 @@ export default class UserController {
   @summary(`Register a user`)
   @body(loginSchema)
   public static async loginUser(ctx: BaseContext) {
-
     // get a user repository to perform operations with user
     const userRepository: Repository<User> = getManager().getRepository(User);
 
@@ -91,6 +115,10 @@ export default class UserController {
       // return BAD REQUEST status code and password is wrong error
       ctx.status = 400;
       ctx.body = 'The specified password is invalid';
+    } else if (!user.verified) {
+      // return UNAUTHORIZED status code and account is not verified error
+      ctx.status = 401;
+      ctx.body = 'The specified account is not verified';
     } else {
       // create jwt and refresh token
       const token = jwt.sign(
@@ -151,6 +179,10 @@ export default class UserController {
       // return UNAUTHORIZED status code and invalid token error
       ctx.status = 401;
       ctx.body = 'Invalid token';
+    } else if (!user.verified) {
+      // return UNAUTHORIZED status code and account is not verified error
+      ctx.status = 401;
+      ctx.body = 'The specified account is not verified';
     } else {
       // create jwt
       const token = jwt.sign(

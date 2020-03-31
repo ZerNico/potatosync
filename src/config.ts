@@ -10,6 +10,13 @@ export interface IConfig {
     databaseUrl: string;
     dbEntitiesPath: string[];
     cronJobExpression: string;
+    baseUrl: string;
+    smtpHost: string;
+    smtpPort: number;
+    smtpSecure: boolean;
+    smtpUser: string;
+    smtpPass: string;
+    mailSender: string;
 }
 
 const isDevMode = process.env.NODE_ENV == 'development';
@@ -23,7 +30,14 @@ const config: IConfig = {
     dbEntitiesPath: [
       ... isDevMode ? ['src/entity/**/*.ts'] : ['dist/entity/**/*.js'],
     ],
-    cronJobExpression: '0 * * * *'
+    cronJobExpression: '0 * * * *',
+    baseUrl: process.env.BASE_URL,
+    smtpHost: process.env.SMTP_HOST,
+    smtpPort: Number(process.env.SMTP_PORT),
+    smtpSecure: process.env.SMTP_SECURE == 'true',
+    smtpUser: process.env.SMTP_USER,
+    smtpPass: process.env.SMTP_PASS,
+    mailSender: process.env.MAIL_SENDER
 };
 
 export { config };

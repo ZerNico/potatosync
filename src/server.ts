@@ -32,7 +32,6 @@ createConnection({
         ssl: config.dbsslconn, // if not development, will use SSL
     }
 }).then(async connection => {
-
     const app = new Koa();
 
     // Provides important security headers to make your app more secure
