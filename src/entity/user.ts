@@ -2,6 +2,7 @@ import { Entity, Column, PrimaryGeneratedColumn, OneToOne } from 'typeorm';
 import { Length, IsEmail, IsOptional, ValidateIf } from 'class-validator';
 import { hash, compare } from 'bcrypt';
 import { IsUniq } from '@join-com/typeorm-class-validator-is-uniq';
+import { Token } from './token';
 
 @Entity()
 export class User {
@@ -22,8 +23,8 @@ export class User {
     password_identifier: string;
 
     @Column({ length: 100, unique: true })
-    @Length(10, 100, { groups: ['register', 'login'] })
-    @IsEmail(undefined, { groups: ['register', 'login'] })
+    @Length(10, 100, { groups: ['register', 'login', 'resend'] })
+    @IsEmail(undefined, { groups: ['register', 'login', 'resend'] })
     @IsUniq({ groups: ['register'] })
     @IsOptional({ groups: ['login'] })
     email: string;
@@ -32,6 +33,9 @@ export class User {
     @Length(5, 100)
     @IsOptional()
     image_url: string;
+
+    @OneToOne(type => Token, Token => Token.user)
+    token: Token;
 
     @Column({ default: false })
     @IsOptional()

@@ -61,7 +61,7 @@ export default class UserController {
           }
         });
       } catch (err) {
-        ctx.throw(500, 'Could not send E-Mail');
+        ctx.throw(500, 'Could not send email');
       }
       // save user and token
       const user = await userRepository.save(userToBeSaved);
@@ -222,6 +222,89 @@ export default class UserController {
       // return OK status code and jwt token
       ctx.status = 200;
       ctx.body = 'Account verified';
+    }
+  }
+
+  @request('post', '/user/resend')
+  @summary(`Resend verification E-Mail`)
+  public static async resend(ctx: BaseContext) {
+
+    // get a user and token repository to perform operations with it
+    const userRepository: Repository<User> = getManager().getRepository(User);
+    const tokenRepository: Repository<Token> = getManager().getRepository(Token);
+
+    // build up user entity to be saved
+    const userToBeVerified: User = new User();
+    userToBeVerified.email = ctx.request.body.email;
+
+    // validate user entity
+    const errors: ValidationError[] = await validate(userToBeVerified, {
+      groups: ['resend'], validationError: { target: false }
+    }); // errors is an array of validation errors
+
+    // try to find user
+    const user: User = await userRepository.findOne({ email: userToBeVerified.email }, { relations: ['token'] });
+
+    if (errors.length > 0) {
+      // return BAD REQUEST status code and errors array
+      ctx.status = 400;
+      ctx.body = errors;
+    } else if (!user) {
+      // return BAD REQUEST status code and email does not exist error
+      ctx.status = 400;
+      ctx.body = 'The specified email was not found';
+    } else if (user.verified) {
+      // return BAD REQUEST status code and user already verified error
+      ctx.status = 400;
+      ctx.body = 'The specified user is already verified';
+    } else {
+      if (!user.token) {
+        // generate verification token
+        const tokenToBeSaved: Token = new Token();
+        tokenToBeSaved.token = crypto.randomBytes(3).toString('hex');
+        tokenToBeSaved.user = user;
+        // send verification mail
+        try {
+          await email.send({
+            template: 'register',
+            message: {
+              to: user.email
+            },
+            locals: {
+              uname: user.username,
+              token: tokenToBeSaved.token,
+              burl: config.baseUrl
+            }
+          });
+        } catch (err) {
+          ctx.throw(500, 'Could not send email');
+        }
+        // save verification token
+        await tokenRepository.save(tokenToBeSaved);
+        // return OK status code
+        ctx.status = 200;
+        ctx.body = 'Email has been sent';
+      } else {
+        // send verification mail
+        try {
+          await email.send({
+            template: 'register',
+            message: {
+              to: user.email
+            },
+            locals: {
+              uname: user.username,
+              token: user.token.token,
+              burl: config.baseUrl
+            }
+          });
+        } catch (err) {
+          ctx.throw(500, 'Could not send email');
+        }
+        // return OK status code
+        ctx.status = 200;
+        ctx.body = 'Email has been sent';
+      }
     }
   }
 }
