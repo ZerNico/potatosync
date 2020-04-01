@@ -7,6 +7,7 @@ const router = new SwaggerRouter();
 // USER ROUTES
 router.post('/register', user.createUser);
 router.post('/login', user.loginUser);
+router.get('/verify/:token', user.verify);
 router.get('/refresh', auth('refresh'), user.refresh);
 // JWT PROTECTED USER ROUTES
 router.use(auth('jwt'));

@@ -1,7 +1,7 @@
 import { BaseContext } from 'koa';
 import { getManager, Repository } from 'typeorm';
 import { validate, ValidationError } from 'class-validator';
-import { body, request, responsesAll, summary, tagsAll } from 'koa-swagger-decorator';
+import { body, request, responsesAll, summary, tagsAll, path } from 'koa-swagger-decorator';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 
@@ -66,7 +66,7 @@ export default class UserController {
       // save user and token
       const user = await userRepository.save(userToBeSaved);
       tokenToBeSaved.user = user;
-      await tokenRepository.save(tokenToBeSaved);
+      const token = await tokenRepository.save(tokenToBeSaved);
       // dont return password
       delete user.password;
       delete user.password_identifier;
@@ -195,4 +195,34 @@ export default class UserController {
       ctx.body = { token: token };
     }
   }
+
+  @request('get', '/user/verify/{token}')
+  @summary(`Verify E-Mail`)
+  @path({
+    token: { type: 'string', required: true, description: 'verification token' }
+  })
+  public static async verify(ctx: BaseContext) {
+
+    // get a user repository to perform operations with user
+    const tokenRepository: Repository<Token> = getManager().getRepository(Token);
+
+    // try to find user
+    const token: Token = await tokenRepository.findOne({ token: ctx.params.token }, { relations: ['user'] });
+
+    if (!token) {
+      // return BAD REQUEST status code and user does not exist error
+      ctx.status = 400;
+      ctx.body = 'The specified token was not found';
+    } else {
+      // set verified status to true
+      token.user.verified = true;
+      await tokenRepository.save(token);
+      // delete token
+      await tokenRepository.remove(token);
+      // return OK status code and jwt token
+      ctx.status = 200;
+      ctx.body = 'Account verified';
+    }
+  }
 }
+
