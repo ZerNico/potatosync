@@ -3,8 +3,8 @@ import { User } from './user';
 
 @Entity()
 export class Token {
-    @PrimaryGeneratedColumn()
-    id: number;
+    @PrimaryGeneratedColumn('uuid')
+    id: string;
 
     @OneToOne(type => User, User => User.token, {
         cascade: true,
