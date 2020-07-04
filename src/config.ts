@@ -17,6 +17,8 @@ export interface IConfig {
     smtpUser: string;
     smtpPass: string;
     mailSender: string;
+    sendgrid: boolean;
+    apiKey: string;
 }
 
 const isDevMode = process.env.NODE_ENV == 'development';
@@ -37,7 +39,9 @@ const config: IConfig = {
     smtpSecure: process.env.SMTP_SECURE == 'true',
     smtpUser: process.env.SMTP_USER,
     smtpPass: process.env.SMTP_PASS,
-    mailSender: process.env.MAIL_SENDER
+    mailSender: process.env.MAIL_SENDER,
+    sendgrid: process.env.SENDGRID == 'true',
+    apiKey: process.env.API_KEY
 };
 
 export { config };
