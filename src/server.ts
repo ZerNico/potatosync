@@ -29,9 +29,9 @@ createConnection({
     logging: false,
     entities: config.dbEntitiesPath,
     extra: {
-        ssl: config.dbsslconn, // if not development, will use SSL
+        ssl: connectionOptions.ssl, // If ssl is set in the connection string it will only connect via SSL
     }
-}).then(async connection => {
+}).then(async _connection => {
     const app = new Koa();
 
     // Provides important security headers to make your app more secure
