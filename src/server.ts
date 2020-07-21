@@ -14,7 +14,8 @@ import { cron } from './cron';
 
 // Get DB connection options from env variable
 const connectionOptions = PostgressConnectionStringParser.parse(config.databaseUrl);
-
+console.log(connectionOptions.ssl);
+console.log(connectionOptions.ssl || true);
 // create connection with database
 // note that its not active database connection
 // TypeORM creates you connection pull to uses connections from pull on your requests
@@ -29,7 +30,7 @@ createConnection({
     logging: false,
     entities: config.dbEntitiesPath,
     extra: {
-        ssl: connectionOptions.ssl, // If ssl is set in the connection string it will only connect via SSL
+        ssl: connectionOptions.ssl === undefined ? true : connectionOptions.ssl, // Defaults to true when it isn't set in connection string
     }
 }).then(async _connection => {
     const app = new Koa();
