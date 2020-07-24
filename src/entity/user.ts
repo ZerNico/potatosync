@@ -6,8 +6,8 @@ import { Token } from './token';
 
 @Entity()
 export class User {
-    @PrimaryGeneratedColumn()
-    id: number;
+    @PrimaryGeneratedColumn('uuid')
+    id: string;
 
     @Column({ length: 80, unique: true })
     @Length(3, 80, { groups: ['register', 'login'] })
