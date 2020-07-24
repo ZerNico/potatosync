@@ -7,6 +7,7 @@ COPY package.json .
 RUN yarn
 # Copy all other source code to work directory
 ADD . /usr/src/app
+ENV NODE_ENV=production
 RUN yarn build-ts
 # Start
 CMD [ "yarn", "serve" ]
