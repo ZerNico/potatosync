@@ -2,11 +2,11 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, OneToOne, Joi
 import { User } from './user';
 
 @Entity()
-export class Token {
+export class EmailVerifyToken {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @OneToOne(type => User, User => User.token, {
+    @OneToOne(type => User, User => User.verify_token, {
         cascade: true,
         onDelete: 'CASCADE'
     })

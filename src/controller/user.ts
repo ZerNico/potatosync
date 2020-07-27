@@ -4,11 +4,15 @@ import { validate, ValidationError } from 'class-validator';
 import { body, request, responsesAll, summary, tagsAll, path } from 'koa-swagger-decorator';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import pug from 'pug';
 
 import { User, userSchema, loginSchema } from '../entity/user';
-import { Token } from '../entity/token';
+import { EmailVerifyToken } from '../entity/emailVerifyToken';
 import { config } from '../config';
 import { email } from '../email';
+import { PasswordResetToken } from '../entity/passwordResetToken';
+import { formData } from 'koa-swagger-decorator/dist';
+import moment from 'moment';
 
 
 @tagsAll(['User'])
@@ -21,7 +25,7 @@ export default class UserController {
 
     // get a user repository to perform operations with user
     const userRepository: Repository<User> = getManager().getRepository(User);
-    const tokenRepository: Repository<Token> = getManager().getRepository(Token);
+    const tokenRepository: Repository<EmailVerifyToken> = getManager().getRepository(EmailVerifyToken);
 
     // build up user entity to be saved
     const userToBeSaved: User = new User();
@@ -45,7 +49,7 @@ export default class UserController {
       // hash password
       await userToBeSaved.hashPassword();
       // generate verification token
-      const tokenToBeSaved: Token = new Token();
+      const tokenToBeSaved: EmailVerifyToken = new EmailVerifyToken();
       tokenToBeSaved.token = crypto.randomBytes(3).toString('hex');
       // send verification mail
       try {
@@ -204,10 +208,10 @@ export default class UserController {
   public static async verify(ctx: BaseContext) {
 
     // get a user repository to perform operations with user
-    const tokenRepository: Repository<Token> = getManager().getRepository(Token);
+    const tokenRepository: Repository<EmailVerifyToken> = getManager().getRepository(EmailVerifyToken);
 
     // try to find user
-    const token: Token = await tokenRepository.findOne({ token: ctx.params.token }, { relations: ['user'] });
+    const token: EmailVerifyToken = await tokenRepository.findOne({ token: ctx.params.token }, { relations: ['user'] });
 
     if (!token) {
       // return BAD REQUEST status code and user does not exist error
@@ -231,7 +235,7 @@ export default class UserController {
 
     // get a user and token repository to perform operations with it
     const userRepository: Repository<User> = getManager().getRepository(User);
-    const tokenRepository: Repository<Token> = getManager().getRepository(Token);
+    const tokenRepository: Repository<EmailVerifyToken> = getManager().getRepository(EmailVerifyToken);
 
     // build up user entity to be saved
     const userToBeVerified: User = new User();
@@ -243,7 +247,7 @@ export default class UserController {
     }); // errors is an array of validation errors
 
     // try to find user
-    const user: User = await userRepository.findOne({ email: userToBeVerified.email }, { relations: ['token'] });
+    const user: User = await userRepository.findOne({ email: userToBeVerified.email }, { relations: ['verify_token'] });
 
     if (errors.length > 0) {
       // return BAD REQUEST status code and errors array
@@ -258,9 +262,9 @@ export default class UserController {
       ctx.status = 400;
       ctx.body = 'The specified user is already verified';
     } else {
-      if (!user.token) {
+      if (!user.verify_token) {
         // generate verification token
-        const tokenToBeSaved: Token = new Token();
+        const tokenToBeSaved: EmailVerifyToken = new EmailVerifyToken();
         tokenToBeSaved.token = crypto.randomBytes(3).toString('hex');
         tokenToBeSaved.user = user;
         // send verification mail
@@ -294,7 +298,7 @@ export default class UserController {
             },
             locals: {
               uname: user.username,
-              token: user.token.token,
+              token: user.verify_token.token,
               burl: config.baseUrl
             }
           });
@@ -305,6 +309,167 @@ export default class UserController {
         ctx.status = 200;
         ctx.body = 'Email has been sent';
       }
+    }
+  }
+
+  @request('post', '/user/send-password-reset')
+  @summary('Send password reset mail')
+  public static async sendResend(ctx: BaseContext) {
+    // get a user and token repository to perform operations with it
+    const userRepository: Repository<User> = getManager().getRepository(User);
+    const tokenRepository: Repository<PasswordResetToken> = getManager().getRepository(PasswordResetToken);
+
+    // build up user entity
+    const userToSendPasswordTo: User = new User();
+    userToSendPasswordTo.email = ctx.request.body.email;
+    userToSendPasswordTo.username = ctx.request.body.username;
+
+    // validate user entity
+    const errors: ValidationError[] = await validate(userToSendPasswordTo, {
+      groups: ['send-reset'], validationError: { target: false }
+    }); // errors is an array of validation errors
+
+    // try to find user
+    const user: User = await userRepository.findOne({
+      where: [
+        { email: userToSendPasswordTo.email },
+        { username: userToSendPasswordTo.username }
+      ]
+    });
+
+    if (errors.length > 0) {
+      // return BAD REQUEST status code and errors array
+      ctx.status = 400;
+      ctx.body = errors;
+    } else if (!user) {
+      // return BAD REQUEST status code and email does not exist error
+      ctx.status = 400;
+      ctx.body = 'The specified user was not found';
+    } else if (!user.verified) {
+      // return BAD REQUEST status code and user already verified error
+      ctx.status = 400;
+      ctx.body = 'The specified user is not verified';
+    } else {
+      if (!user.reset_token) {
+        // generate verification token
+        const tokenToBeSaved: PasswordResetToken = new PasswordResetToken();
+        tokenToBeSaved.token = crypto.randomBytes(6).toString('hex');
+        tokenToBeSaved.user = user;
+        // send verification mail
+        try {
+          await email.send({
+            template: 'password-reset',
+            message: {
+              to: user.email
+            },
+            locals: {
+              uname: user.username,
+              token: tokenToBeSaved.token,
+              burl: config.baseUrl,
+              expire_min: 10,
+            }
+          });
+        } catch (err) {
+          console.log(err);
+          ctx.throw(500, 'Could not send email');
+        }
+        // save verification token
+        await tokenRepository.save(tokenToBeSaved);
+        // return OK status code
+        ctx.status = 200;
+        ctx.body = 'Email has been sent';
+      } else {
+        // send verification mail
+        try {
+          await email.send({
+            template: 'password-reset',
+            message: {
+              to: user.email
+            },
+            locals: {
+              uname: user.username,
+              token: user.reset_token.token,
+              burl: config.baseUrl
+            }
+          });
+        } catch (err) {
+          console.log(err);
+          ctx.throw(500, 'Could not send email');
+        }
+        // return OK status code
+        ctx.status = 200;
+        ctx.body = 'Email has been sent';
+      }
+    }
+  }
+
+  @request('get', '/user/reset-password/{token}')
+  @summary('Show password form when using link from email')
+  @path({
+    token: { type: 'string', required: true, description: 'Reset token' }
+  })
+  public static async showPasswordForm(ctx: BaseContext) {
+    const compiledPasswordPage = pug.compileFile('pages/password-reset.pug');
+    ctx.status = 200;
+    ctx.body = compiledPasswordPage({
+      token: ctx.params.token,
+      min_password_length: 5,
+      max_password_length: 60,
+    });
+  }
+
+  @request('post', '/user/reset-password')
+  @summary('Show password form when using link from email')
+  @formData({
+    password: {type: 'string', required: true, description: 'New Password'},
+    password_again: {type: 'string', required: true, description: 'New Password Again'},
+    token: {type: 'string', required: true, description: 'Reset token'}
+  })
+  public static async resetPassword(ctx: BaseContext) {
+    const compiledPasswordPage = pug.compileFile('pages/password-reset.pug');
+    // get a user repository to perform operations with user
+    const tokenRepository: Repository<PasswordResetToken> = getManager().getRepository(PasswordResetToken);
+    // try to find user
+    const token: PasswordResetToken = await tokenRepository.findOne({token: ctx.request.body.token }, { relations: ['user'] });
+    if (!token) {
+      // return BAD REQUEST status code and user does not exist error
+      ctx.status = 400;
+      ctx.body = 'The token has expired';
+    } else if (moment(token.createdAt).add(10, 'minutes').unix() > moment.now()) {
+      await tokenRepository.remove(token);
+      ctx.status = 400;
+      ctx.body = 'The token has expired';
+    } else if (ctx.request.body.password !== ctx.request.body.password_again) {
+      ctx.status = 400;
+      ctx.body = compiledPasswordPage({
+        token: ctx.request.body.token,
+        error: 'Password fields do not match',
+        min_password_length: 5,
+        max_password_length: 60,
+      });
+    } else {
+      // set verified status to true
+      token.user.password = ctx.request.body.password;
+      // validate user entity
+      const errors: ValidationError[] = await validate(token.user, {
+        groups: ['login'], validationError: { target: false }
+      }); // errors is an array of validation errors
+      if (errors.length > 0) {
+        // return BAD REQUEST status code and errors array
+        ctx.status = 400;
+        ctx.body = errors;
+        return;
+      }
+      // identifier to detect password change
+      token.user.password_identifier = crypto.randomBytes(5).toString('hex');
+      await token.user.hashPassword();
+      // save changes to user
+      await tokenRepository.save(token);
+      // delete token
+      await tokenRepository.remove(token);
+      // return OK status code and jwt token
+      ctx.status = 200;
+      ctx.body = 'Password Changed';
     }
   }
 }

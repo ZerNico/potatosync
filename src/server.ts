@@ -10,7 +10,7 @@ import * as PostgressConnectionStringParser from 'pg-connection-string';
 import { logger } from './logging';
 import { config } from './config';
 import { router } from './routes';
-import { cron } from './cron';
+import { emailCron, passwordCron } from './cron';
 
 // Get DB connection options from env variable
 const connectionOptions = PostgressConnectionStringParser.parse(config.databaseUrl);
@@ -28,7 +28,7 @@ createConnection({
     logging: false,
     entities: config.dbEntitiesPath,
     extra: {
-        ssl: connectionOptions.ssl === undefined ? true : connectionOptions.ssl == "true", // Defaults to true when it isn't set in connection string
+        ssl: connectionOptions.ssl === undefined ? true : connectionOptions.ssl == 'true', // Defaults to true when it isn't set in connection string
     }
 }).then(async _connection => {
     const app = new Koa();
@@ -48,8 +48,9 @@ createConnection({
     // Register routes
     app.use(router.routes()).use(router.allowedMethods());
 
-    // Register cron job to do any action needed
-    cron.start();
+    // Register cron jobs to do any action needed
+    emailCron.start();
+    passwordCron.start();
 
     app.listen(config.port);
 

@@ -1,16 +1,26 @@
 import { CronJob } from 'cron';
 import { getManager, LessThan, Repository } from 'typeorm';
-import { subHours } from 'date-fns';
 import { config } from './config';
-import { Token } from './entity/token';
+import { EmailVerifyToken } from './entity/emailVerifyToken';
+import { PasswordResetToken } from './entity/passwordResetToken';
+import moment from 'moment';
 
 
-const cron = new CronJob(config.cronJobExpression, async () => {
+const emailCron = new CronJob(config.cronJobExpression, async () => {
     console.log('Executing cron job once every hour');
-    // delete old verification tokens
-    const tokenRepository: Repository<Token> = getManager().getRepository(Token);
-    const token: Token[] = await tokenRepository.find({ where: { createdAt: LessThan(subHours(new Date(), 12)) } });
-    await tokenRepository.remove(token);
+    // delete old email verification tokens
+    const tokenRepository: Repository<EmailVerifyToken> = getManager().getRepository(EmailVerifyToken);
+    const emailToken: EmailVerifyToken[] = await tokenRepository.find({ where: { createdAt: LessThan(moment(new Date()).subtract(12, 'hours')) } });
+    await tokenRepository.remove(emailToken);
+    console.log(`Deleted ${emailToken.length} verification tokens`);
 });
 
-export { cron };
+const passwordCron = new CronJob('* * * * *', async () => {
+    console.log('Executing password cron job');
+    const tokenRepository: Repository<PasswordResetToken> = getManager().getRepository(PasswordResetToken);
+    const passwordToken: PasswordResetToken[] = await tokenRepository.find({ where: { createdAt: LessThan(moment(new Date()).subtract(10, 'minutes'))}});
+    await tokenRepository.remove(passwordToken);
+    console.log(`Deleted ${passwordToken.length} password-reset tokens`);
+});
+
+export { emailCron, passwordCron };
