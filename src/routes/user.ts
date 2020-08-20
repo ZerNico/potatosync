@@ -9,6 +9,7 @@ router.post('/register', user.createUser);
 router.post('/login', user.loginUser);
 router.get('/verify/:token', user.verify);
 router.post('/resend', user.resend);
+router.post('/reset-password', user.resetPassword);
 router.get('/refresh', auth('refresh'), user.refresh);
 // JWT PROTECTED USER ROUTES
 router.get('/profile', auth('jwt'), user.getProfile);
