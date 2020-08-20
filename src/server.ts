@@ -10,7 +10,7 @@ import * as PostgressConnectionStringParser from 'pg-connection-string';
 import { logger } from './logging';
 import { config } from './config';
 import { router } from './routes';
-import { emailCron, passwordCron } from './cron';
+import { emailCron, passwordCron, sessionCron } from './cron';
 
 // Get DB connection options from env variable
 const connectionOptions = PostgressConnectionStringParser.parse(config.databaseUrl);
@@ -51,6 +51,7 @@ createConnection({
     // Register cron jobs to do any action needed
     emailCron.start();
     passwordCron.start();
+    sessionCron.start();
 
     app.listen(config.port);
 
