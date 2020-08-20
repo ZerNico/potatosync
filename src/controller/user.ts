@@ -13,6 +13,7 @@ import { email } from '../email';
 import { PasswordResetToken } from '../entity/passwordResetToken';
 import { formData } from 'koa-swagger-decorator/dist';
 import moment from 'moment';
+import { SessionToken } from '../entity/sessionToken';
 
 
 @tagsAll(['User'])
@@ -86,13 +87,13 @@ export default class UserController {
   public static async loginUser(ctx: BaseContext) {
     // get a user repository to perform operations with user
     const userRepository: Repository<User> = getManager().getRepository(User);
+    const sessionRepository: Repository<SessionToken> = getManager().getRepository(SessionToken);
 
     // build up user entity
     const userToBeLoggedIn: User = new User();
     userToBeLoggedIn.email = ctx.request.body.email;
     userToBeLoggedIn.username = ctx.request.body.username;
     userToBeLoggedIn.password = ctx.request.body.password;
-
 
     // validate user entity
     const errors: ValidationError[] = await validate(userToBeLoggedIn, {
@@ -124,6 +125,11 @@ export default class UserController {
       ctx.status = 401;
       ctx.body = 'The specified account is not verified';
     } else {
+      // build up session token entity
+      const tokenToBeSaved: EmailVerifyToken = new EmailVerifyToken();
+      tokenToBeSaved.token = crypto.randomBytes(3).toString('hex');
+      tokenToBeSaved.user = user;
+      await sessionRepository.save(tokenToBeSaved);
       // create jwt and refresh token
       const token = jwt.sign(
         { sub: user.id, role: user.role, type: 'jwt' },
@@ -131,7 +137,7 @@ export default class UserController {
         { expiresIn: '20m' }
       );
       const refresh_token = jwt.sign(
-        { sub: user.id, pwId: user.password_identifier, type: 'refresh' },
+        { sub: user.id, session: tokenToBeSaved.token, pwId: user.password_identifier, type: 'refresh' },
         config.jwtSecret,
         { expiresIn: '1y' }
       );
@@ -171,6 +177,7 @@ export default class UserController {
 
     // get a user repository to perform operations with user
     const userRepository: Repository<User> = getManager().getRepository(User);
+    const sessionRepository: Repository<SessionToken> = getManager().getRepository(SessionToken);
 
     // try to find user
     const user: User = await userRepository.findOne({ id: ctx.state.user.sub });
@@ -183,6 +190,15 @@ export default class UserController {
       // return UNAUTHORIZED status code and invalid token error
       ctx.status = 401;
       ctx.body = 'Invalid token';
+    }
+
+    // try to find user
+    const token: EmailVerifyToken = await sessionRepository.findOne({ token: ctx.state.user.session }, { relations: ['user'] });
+
+    if (!token || user.id != token.user.id) {
+      // return BAD REQUEST status code and invalid session error
+      ctx.status = 400;
+      ctx.body = 'Invalid session';
     } else if (!user.verified) {
       // return UNAUTHORIZED status code and account is not verified error
       ctx.status = 401;
