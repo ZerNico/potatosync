@@ -11,6 +11,7 @@ router.get('/verify/:token', user.verify);
 router.post('/resend', user.resend);
 router.post('/reset-password', user.resetPassword);
 router.get('/refresh', auth('refresh'), user.refresh);
+router.get('/logout', auth('refresh'), user.logout);
 // JWT PROTECTED USER ROUTES
 router.get('/profile', auth('jwt'), user.getProfile);
 

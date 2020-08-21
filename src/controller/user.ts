@@ -216,6 +216,51 @@ export default class UserController {
     }
   }
 
+  @request('get', '/user/logout')
+  @summary(`Log out of current session`)
+  public static async logout(ctx: BaseContext) {
+
+    // get a user repository to perform operations with user
+    const userRepository: Repository<User> = getManager().getRepository(User);
+    const sessionRepository: Repository<SessionToken> = getManager().getRepository(SessionToken);
+
+    // try to find user
+    const user: User = await userRepository.findOne({ id: ctx.state.user.sub });
+
+    if (!user) {
+      // return BAD REQUEST status code and user does not exist error
+      ctx.status = 400;
+      ctx.body = 'The specified user was not found';
+    } else if (ctx.state.user.pwId != user.password_identifier) {
+      // return UNAUTHORIZED status code and invalid token error
+      ctx.status = 401;
+      ctx.body = 'Invalid token';
+    }
+
+    // try to find token
+    const token: SessionToken = await sessionRepository.findOne({
+      relations: ['user'],
+      where: {
+        user: {
+          id: ctx.state.user.sub
+        },
+        token: ctx.state.user.session
+      }
+    });
+
+    if (!token || user.id != token.user.id) {
+      // return BAD REQUEST status code and invalid session error
+      ctx.status = 400;
+      ctx.body = 'Invalid session';
+    } else {
+      // delete session
+      sessionRepository.remove(token);
+      // return OK status code and jwt token
+      ctx.status = 200;
+      ctx.body = 'Logged out';
+    }
+  }
+
   @request('get', '/user/verify/{token}')
   @summary(`Verify E-Mail`)
   @path({
