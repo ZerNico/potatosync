@@ -52,7 +52,7 @@
     "koa-jwt": "^3.3.2",
     "koa-router": "^7.4.0",
     "koa-swagger-decorator": "^1.5.16",
-    "moment": "^2.24.0",
+    "moment": "^2.29.4",
     "nodemailer": "^6.4.6",
     "pg": "^7.4.3",
     "pg-connection-string": "^2.0.0",
